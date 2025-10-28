@@ -785,7 +785,7 @@ void ImageFilters::applyFrame(Image& currentImage, const QString& frameType)
         currentImage = result;
     } else if (frameType == "Gold Decorated Frame") {
         // Gold style decorative frame
-        int fw = 22;
+        int fw = 45;
         int outer[3] = {180, 140, 40};
         int inner[3] = {240, 210, 120};
         int accent[3] = {200, 160, 60};
