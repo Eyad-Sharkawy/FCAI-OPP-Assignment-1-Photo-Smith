@@ -1951,7 +1951,7 @@ protected:
  * 
  * Initializes the Qt application, creates the main window, and starts the event loop.
  * This function sets up the complete application environment and handles the
- * application lifecycle from startup to shutdown.
+ * application lifecycle from startup to shut down.
  * 
  * @param argc Number of command line arguments
  * @param argv Array of command line argument strings
