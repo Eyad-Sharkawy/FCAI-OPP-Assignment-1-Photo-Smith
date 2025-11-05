@@ -717,41 +717,62 @@ private slots:
     /**
      * @brief Apply rotation transformation to the current image.
      * 
-     * Presents a dialog to the user to choose between 90°, 180°, or 270° rotation
-     * angles, then applies the selected rotation to the current image.
+     * Presents a slider dialog to the user to choose any rotation angle from 0° to 360°,
+     * then applies the selected rotation to the current image.
      * 
      * @details This method:
      * - Validates that an image is currently loaded
-     * - Shows a selection dialog for rotation angle
+     * - Shows a slider dialog for rotation angle selection (0-360 degrees)
      * - Saves the current state for undo functionality
      * - Applies the rotation transformation using ImageFilters
      * - Updates the display and properties panel
      * - Handles errors gracefully with user feedback
      * 
      * @note This is an immediate operation without progress tracking.
+     * @note Common angles (90°, 180°, 270°) use optimized paths for better performance.
+     * @note Arbitrary angles use bilinear interpolation for smooth rotation.
      * @see ImageFilters::applyRotate() for the actual rotation implementation
-     * @see getInputFromList() for user input dialog
      */
     void applyRotate()
     {
         if (!hasImage) return;
         
-        QStringList options;
-        options << "90°" << "180°" << "270°";
+        // Create slider dialog for rotation angle
+        QDialog dialog(this);
+        dialog.setWindowTitle("Rotate Image");
+        QVBoxLayout *layout = new QVBoxLayout(&dialog);
+        QLabel *lbl = new QLabel("Choose rotation angle (degrees)", &dialog);
+        QSlider *slider = new QSlider(Qt::Horizontal, &dialog);
+        slider->setRange(0, 360);
+        slider->setValue(0);
+        QLabel *valueLabel = new QLabel(QString::number(slider->value()) + "°", &dialog);
+        QObject::connect(slider, &QSlider::valueChanged, &dialog, [valueLabel](int v){ valueLabel->setText(QString::number(v) + "°"); });
+        QHBoxLayout *buttons = new QHBoxLayout();
+        QPushButton *okBtn = new QPushButton("OK", &dialog);
+        QPushButton *cancelBtn = new QPushButton("Cancel", &dialog);
+        buttons->addStretch();
+        buttons->addWidget(okBtn);
+        buttons->addWidget(cancelBtn);
+        layout->addWidget(lbl);
+        layout->addWidget(slider);
+        layout->addWidget(valueLabel);
+        layout->addLayout(buttons);
         
-        QString choice = getInputFromList("Rotate Image", "Choose rotation angle:", options);
+        int chosenAngle = slider->value();
+        QObject::connect(okBtn, &QPushButton::clicked, &dialog, [&](){ chosenAngle = slider->value(); dialog.accept(); });
+        QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, [&](){ dialog.reject(); });
         
-        if (!choice.isEmpty()) {
-            saveStateForUndo();
-            
-            try {
-                imageFilters->applyRotate(currentImage, choice);
-                updateImageDisplay();
-                setActiveFilterValue("Rotate");
-                updatePropertiesPanel();
-            } catch (const std::exception& e) {
-                QMessageBox::critical(this, "Error", QString("Filter failed: %1").arg(e.what()));
-            }
+        if (dialog.exec() != QDialog::Accepted) return;
+        
+        saveStateForUndo();
+        
+        try {
+            imageFilters->applyRotate(currentImage, chosenAngle);
+            updateImageDisplay();
+            setActiveFilterValue("Rotate");
+            updatePropertiesPanel();
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Error", QString("Filter failed: %1").arg(e.what()));
         }
     }
     

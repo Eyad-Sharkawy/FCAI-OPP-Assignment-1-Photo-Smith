@@ -36,6 +36,8 @@
 #include <QtWidgets/QApplication>
 #include <QtCore/QString>
 #include "image/Image_Class.h"
+#include <cmath>
+#include <algorithm>
 
 /**
  * @brief Constructs an ImageFilters object with Qt UI components.
@@ -530,7 +532,7 @@ void ImageFilters::applyFlip(Image& currentImage, const QString& direction)
     }
 }
 
-void ImageFilters::applyRotate(Image& currentImage, const QString& angle)
+void ImageFilters::applyRotate(Image& currentImage, int angleDegrees)
 {
     if (statusBar) {
         statusBar->showMessage("Applying Rotate filter...");
@@ -538,42 +540,141 @@ void ImageFilters::applyRotate(Image& currentImage, const QString& angle)
     QApplication::processEvents();
     
     try {
+        // Normalize angle to 0-360 range
+        angleDegrees = angleDegrees % 360;
+        if (angleDegrees < 0) angleDegrees += 360;
+        
         Image tempImage = currentImage;
         
-        if (angle == "90°") {
+        // Optimized paths for common angles
+        if (angleDegrees == 0 || angleDegrees == 360) {
+            // No rotation needed
+            return;
+        } else if (angleDegrees == 90) {
             currentImage = Image(tempImage.height, tempImage.width);
-        for (int y = 0; y < tempImage.height; y++) {
-            for (int x = 0; x < tempImage.width; x++) {
-                int newX = tempImage.height - 1 - y;
-                int newY = x;
-                for (int c = 0; c < 3; c++) {
+            for (int y = 0; y < tempImage.height; y++) {
+                for (int x = 0; x < tempImage.width; x++) {
+                    int newX = tempImage.height - 1 - y;
+                    int newY = x;
+                    for (int c = 0; c < 3; c++) {
                         currentImage.setPixel(newX, newY, c, tempImage(x, y, c));
                     }
                 }
             }
-        } else if (angle == "180°") {
+        } else if (angleDegrees == 180) {
             for (int y = 0; y < currentImage.height / 2; y++) {
                 for (int x = 0; x < currentImage.width; x++) {
                     int y2 = currentImage.height - 1 - y;
                     int x2 = currentImage.width - 1 - x;
-                for (int c = 0; c < 3; c++) {
+                    for (int c = 0; c < 3; c++) {
                         int temp = currentImage(x, y, c);
                         currentImage.setPixel(x, y, c, currentImage(x2, y2, c));
                         currentImage.setPixel(x2, y2, c, temp);
                     }
                 }
             }
-        } else { // 270°
+        } else if (angleDegrees == 270) {
             currentImage = Image(tempImage.height, tempImage.width);
-        for (int y = 0; y < tempImage.height; y++) {
-            for (int x = 0; x < tempImage.width; x++) {
-                int newX = y;
-                int newY = tempImage.width - 1 - x;
-                for (int c = 0; c < 3; c++) {
+            for (int y = 0; y < tempImage.height; y++) {
+                for (int x = 0; x < tempImage.width; x++) {
+                    int newX = y;
+                    int newY = tempImage.width - 1 - x;
+                    for (int c = 0; c < 3; c++) {
                         currentImage.setPixel(newX, newY, c, tempImage(x, y, c));
                     }
                 }
             }
+        } else {
+            // General rotation for arbitrary angles using rotation matrix
+            double angleRad = angleDegrees * M_PI / 180.0;
+            double cosAngle = std::cos(angleRad);
+            double sinAngle = std::sin(angleRad);
+            
+            // Calculate bounding box of rotated image
+            double centerX = tempImage.width / 2.0;
+            double centerY = tempImage.height / 2.0;
+            
+            // Calculate corners of rotated image
+            double corners[4][2];
+            corners[0][0] = -centerX; corners[0][1] = -centerY;
+            corners[1][0] = tempImage.width - centerX; corners[1][1] = -centerY;
+            corners[2][0] = tempImage.width - centerX; corners[2][1] = tempImage.height - centerY;
+            corners[3][0] = -centerX; corners[3][1] = tempImage.height - centerY;
+            
+            double minX = corners[0][0], maxX = corners[0][0];
+            double minY = corners[0][1], maxY = corners[0][1];
+            
+            for (int i = 0; i < 4; i++) {
+                double rotX = corners[i][0] * cosAngle - corners[i][1] * sinAngle;
+                double rotY = corners[i][0] * sinAngle + corners[i][1] * cosAngle;
+                minX = std::min(minX, rotX);
+                maxX = std::max(maxX, rotX);
+                minY = std::min(minY, rotY);
+                maxY = std::max(maxY, rotY);
+            }
+            
+            int newWidth = static_cast<int>(std::ceil(maxX - minX));
+            int newHeight = static_cast<int>(std::ceil(maxY - minY));
+            
+            // Create new image
+            Image rotatedImage(newWidth, newHeight);
+            
+            // Fill with black background
+            for (int y = 0; y < newHeight; y++) {
+                for (int x = 0; x < newWidth; x++) {
+                    for (int c = 0; c < 3; c++) {
+                        rotatedImage.setPixel(x, y, c, 0);
+                    }
+                }
+            }
+            
+            // Rotate each pixel using inverse rotation (map destination to source)
+            double newCenterX = newWidth / 2.0;
+            double newCenterY = newHeight / 2.0;
+            
+            for (int y = 0; y < newHeight; y++) {
+                for (int x = 0; x < newWidth; x++) {
+                    // Transform coordinates relative to new center
+                    double dx = x - newCenterX;
+                    double dy = y - newCenterY;
+                    
+                    // Apply inverse rotation
+                    double srcX = dx * cosAngle + dy * sinAngle + centerX;
+                    double srcY = -dx * sinAngle + dy * cosAngle + centerY;
+                    
+                    // Bilinear interpolation
+                    int x1 = static_cast<int>(std::floor(srcX));
+                    int y1 = static_cast<int>(std::floor(srcY));
+                    int x2 = x1 + 1;
+                    int y2 = y1 + 1;
+                    
+                    // Check bounds
+                    if (x1 >= 0 && x1 < tempImage.width && y1 >= 0 && y1 < tempImage.height) {
+                        double fx = srcX - x1;
+                        double fy = srcY - y1;
+                        
+                        for (int c = 0; c < 3; c++) {
+                            int p11 = (x1 >= 0 && x1 < tempImage.width && y1 >= 0 && y1 < tempImage.height) 
+                                     ? tempImage(x1, y1, c) : 0;
+                            int p21 = (x2 >= 0 && x2 < tempImage.width && y1 >= 0 && y1 < tempImage.height) 
+                                     ? tempImage(x2, y1, c) : 0;
+                            int p12 = (x1 >= 0 && x1 < tempImage.width && y2 >= 0 && y2 < tempImage.height) 
+                                     ? tempImage(x1, y2, c) : 0;
+                            int p22 = (x2 >= 0 && x2 < tempImage.width && y2 >= 0 && y2 < tempImage.height) 
+                                     ? tempImage(x2, y2, c) : 0;
+                            
+                            double interpolated = p11 * (1 - fx) * (1 - fy) +
+                                                 p21 * fx * (1 - fy) +
+                                                 p12 * (1 - fx) * fy +
+                                                 p22 * fx * fy;
+                            
+                            rotatedImage.setPixel(x, y, c, static_cast<unsigned char>(std::max(0, std::min(255, static_cast<int>(interpolated)))));
+                        }
+                    }
+                }
+            }
+            
+            currentImage = rotatedImage;
         }
         
         if (statusBar) {

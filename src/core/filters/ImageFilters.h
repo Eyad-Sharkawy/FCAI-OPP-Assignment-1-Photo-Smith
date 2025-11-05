@@ -183,12 +183,12 @@ public:
      * @brief Rotates the image by the specified angle.
      * 
      * @param currentImage Reference to the image to rotate (modified in-place)
-     * @param angle String specifying rotation angle: "90°", "180°", or "270°"
+     * @param angleDegrees Rotation angle in degrees (0-360)
      * 
      * @note This is an immediate operation without progress tracking.
-     * @throws std::invalid_argument if angle is not "90°", "180°", or "270°"
+     * @note For best performance with 90°, 180°, and 270°, special optimized paths are used.
      */
-    void applyRotate(Image& currentImage, const QString& angle);
+    void applyRotate(Image& currentImage, int angleDegrees);
     
     /**
      * @brief Adjusts image brightness (darken or lighten).
