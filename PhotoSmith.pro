@@ -20,11 +20,13 @@ TARGET = PhotoSmith
 TEMPLATE = app
 
 SOURCES += src/gui/photo_smith.cpp \
+           src/gui/ColorWheelDialog.cpp \
            src/core/filters/ImageFilters.cpp \
            src/core/image/Image_Class.cpp
 
 HEADERS += src/core/image/Image_Class.h \
-           src/core/filters/ImageFilters.h
+           src/core/filters/ImageFilters.h \
+           src/gui/ColorWheelDialog.h
 
 FORMS += src/gui/mainwindow.ui
 

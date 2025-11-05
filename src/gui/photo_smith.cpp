@@ -90,6 +90,7 @@
 #include "ui_mainwindow.h"
 #include "../core/history/HistoryManager.h"
 #include "../core/io/ImageIO.h"
+#include "ColorWheelDialog.h"
 
 /**
  * @class PhotoSmith
@@ -824,24 +825,19 @@ private slots:
     {
         if (!hasImage) return;
         
-        QStringList options;
-        options << "Simple Frame"
-                << "Double Border - White"
-                << "Solid Frame - Blue"
-                << "Solid Frame - Red"
-                << "Solid Frame - Green"
-                << "Solid Frame - Black"
-                << "Solid Frame - White"
-                << "Shadow Frame"
-                << "Gold Decorated Frame";
-        
-        QString choice = getInputFromList("Add Frame", "Choose frame type:", options);
-        
-        if (!choice.isEmpty()) {
+        // Always use color wheel for all frame types - they're all customizable now!
+        // Pass image dimensions to calculate default frame width
+        ColorWheelDialog colorDialog(this, QColor(0, 0, 255), true, currentImage.width, currentImage.height);
+        if (colorDialog.exec() == QDialog::Accepted) {
+            int r, g, b;
+            colorDialog.getRGB(r, g, b);
+            QString frameType = colorDialog.getFrameType();
+            int frameWidth = colorDialog.getFrameWidth();
+            
             runSimpleFilter([&]() {
-                imageFilters->applyFrame(currentImage, choice);
+                imageFilters->applyFrame(currentImage, frameType, frameWidth, r, g, b);
             });
-            setActiveFilterValue("Frame");
+            setActiveFilterValue(QString("%1 (RGB: %2, %3, %4)").arg(frameType).arg(r).arg(g).arg(b));
             updatePropertiesPanel();
         }
     }
@@ -966,11 +962,28 @@ private slots:
     void applyPurpleFilter()
     {
         if (!hasImage) return;
-        runCancelableFilter([&]() {
-            imageFilters->applyPurpleFilter(currentImage, preFilterImage, cancelRequested);
-        });
-        setActiveFilterValue("Purple Filter");
-        updatePropertiesPanel();
+        
+        // Show color wheel dialog for custom color tint
+        ColorWheelDialog colorDialog(this, QColor(128, 0, 255)); // Default to purple
+        if (colorDialog.exec() == QDialog::Accepted) {
+            QColor selectedColor = colorDialog.getSelectedColor();
+            int r, g, b;
+            colorDialog.getRGB(r, g, b);
+            
+            // Ask for intensity
+            bool ok = false;
+            int intensityPercent = getPercentWithSlider("Color Tint Intensity", 
+                                                       "Choose tint intensity (0-100%)", 50, &ok);
+            if (!ok) return;
+            
+            double intensity = intensityPercent / 100.0;
+            
+            runCancelableFilter([&]() {
+                imageFilters->applyColorTint(currentImage, preFilterImage, cancelRequested, r, g, b, intensity);
+            });
+            setActiveFilterValue(QString("Color Tint (RGB: %1, %2, %3)").arg(r).arg(g).arg(b));
+            updatePropertiesPanel();
+        }
     }
     void applyEmboss()
     {

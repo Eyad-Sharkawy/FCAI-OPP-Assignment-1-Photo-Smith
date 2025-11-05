@@ -660,6 +660,49 @@ void ImageFilters::applyDarkAndLight(Image& currentImage, const QString& choice,
     }
 }
 
+void ImageFilters::applyFrame(Image& currentImage, int frameWidth, int r, int g, int b)
+{
+    if (statusBar) {
+        statusBar->showMessage("Applying Custom Frame filter...");
+    }
+    QApplication::processEvents();
+    
+    try {
+        frameWidth = std::max(1, frameWidth);
+        int newWidth = currentImage.width + 2 * frameWidth;
+        int newHeight = currentImage.height + 2 * frameWidth;
+        Image result(newWidth, newHeight);
+        
+        // Fill with frame color
+        for (int y = 0; y < newHeight; ++y) {
+            for (int x = 0; x < newWidth; ++x) {
+                result.setPixel(x, y, 0, r);
+                result.setPixel(x, y, 1, g);
+                result.setPixel(x, y, 2, b);
+            }
+        }
+        
+        // Copy original image
+        for (int y = 0; y < currentImage.height; ++y) {
+            for (int x = 0; x < currentImage.width; ++x) {
+                for (int c = 0; c < 3; ++c) {
+                    result.setPixel(x + frameWidth, y + frameWidth, c, currentImage(x, y, c));
+                }
+            }
+        }
+        
+        currentImage = result;
+        
+        if (statusBar) {
+            statusBar->showMessage(QString("Custom Frame filter applied (RGB: %1, %2, %3)").arg(r).arg(g).arg(b));
+        }
+    } catch (const std::exception& e) {
+        if (statusBar) {
+            statusBar->showMessage(QString("Filter failed: %1").arg(e.what()));
+        }
+    }
+}
+
 void ImageFilters::applyFrame(Image& currentImage, const QString& frameType)
 {
     if (statusBar) {
@@ -890,6 +933,310 @@ void ImageFilters::applyFrame(Image& currentImage, const QString& frameType)
         
         if (statusBar) {
             statusBar->showMessage("Frame filter applied");
+        }
+    } catch (const std::exception& e) {
+        if (statusBar) {
+            statusBar->showMessage(QString("Filter failed: %1").arg(e.what()));
+        }
+    }
+}
+
+void ImageFilters::applyFrame(Image& currentImage, const QString& frameType, int frameWidth, int r, int g, int b)
+{
+    if (statusBar) {
+        statusBar->showMessage("Applying Custom Colored Frame filter...");
+    }
+    QApplication::processEvents();
+    
+    try {
+        // Clamp and validate inputs
+        r = std::max(0, std::min(255, r));
+        g = std::max(0, std::min(255, g));
+        b = std::max(0, std::min(255, b));
+        frameWidth = std::max(1, frameWidth);
+        
+        if (frameType == "Solid Frame") {
+            // Simple solid colored frame
+            int newWidth = currentImage.width + 2 * frameWidth;
+            int newHeight = currentImage.height + 2 * frameWidth;
+            Image result(newWidth, newHeight);
+            
+            // Fill with frame color
+            for (int y = 0; y < newHeight; ++y) {
+                for (int x = 0; x < newWidth; ++x) {
+                    result.setPixel(x, y, 0, r);
+                    result.setPixel(x, y, 1, g);
+                    result.setPixel(x, y, 2, b);
+                }
+            }
+            
+            // Copy original image
+            for (int y = 0; y < currentImage.height; ++y) {
+                for (int x = 0; x < currentImage.width; ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x + frameWidth, y + frameWidth, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            currentImage = result;
+        } else if (frameType == "Simple Frame") {
+            // Simple frame with colored outer and white inner border
+            int innerFrame = frameWidth / 2;
+            Image result(currentImage.width + 2 * frameWidth, currentImage.height + 2 * frameWidth);
+            
+            // Fill with frame color
+            for (int y = 0; y < result.height; y++) {
+                for (int x = 0; x < result.width; x++) {
+                    result.setPixel(x, y, 0, r);
+                    result.setPixel(x, y, 1, g);
+                    result.setPixel(x, y, 2, b);
+                }
+            }
+            
+            // Copy original image
+            for (int y = 0; y < currentImage.height; y++) {
+                for (int x = 0; x < currentImage.width; x++) {
+                    for (int c = 0; c < 3; c++) {
+                        result.setPixel(x + frameWidth, y + frameWidth, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            
+            // Add inner white border
+            int gap = 3;
+            for (int y = frameWidth + gap; y < frameWidth + currentImage.height - gap; y++) {
+                for (int x = frameWidth + gap; x < frameWidth + currentImage.width - gap; x++) {
+                    bool isWhiteBorder =
+                        (x < frameWidth + gap + innerFrame ||
+                         x >= frameWidth + currentImage.width - gap - innerFrame ||
+                         y < frameWidth + gap + innerFrame ||
+                         y >= frameWidth + currentImage.height - gap - innerFrame);
+                    if (isWhiteBorder) {
+                        result.setPixel(x, y, 0, 255);
+                        result.setPixel(x, y, 1, 255);
+                        result.setPixel(x, y, 2, 255);
+                    }
+                }
+            }
+            currentImage = result;
+        } else if (frameType == "Double Border") {
+            // Double border with custom color
+            int outer = frameWidth * 2;
+            int inner = frameWidth;
+            int gap = frameWidth / 2;
+            int newWidth = currentImage.width + 2 * (outer + inner + gap);
+            int newHeight = currentImage.height + 2 * (outer + inner + gap);
+            Image result(newWidth, newHeight);
+            
+            // Fill with dark background
+            int bgR = r / 4, bgG = g / 4, bgB = b / 4;
+            for (int y = 0; y < newHeight; ++y) {
+                for (int x = 0; x < newWidth; ++x) {
+                    result.setPixel(x, y, 0, bgR);
+                    result.setPixel(x, y, 1, bgG);
+                    result.setPixel(x, y, 2, bgB);
+                }
+            }
+            
+            // Outer border
+            for (int y = 0; y < newHeight; ++y) {
+                for (int x = 0; x < newWidth; ++x) {
+                    bool border = (x < outer || x >= newWidth - outer || y < outer || y >= newHeight - outer);
+                    if (border) {
+                        result.setPixel(x, y, 0, r);
+                        result.setPixel(x, y, 1, g);
+                        result.setPixel(x, y, 2, b);
+                    }
+                }
+            }
+            
+            // Inner border
+            for (int y = outer + gap; y < newHeight - (outer + gap); ++y) {
+                for (int x = outer + gap; x < newWidth - (outer + gap); ++x) {
+                    bool border = (x < outer + gap + inner || x >= newWidth - (outer + gap + inner) ||
+                                 y < outer + gap + inner || y >= newHeight - (outer + gap + inner));
+                    if (border) {
+                        result.setPixel(x, y, 0, r);
+                        result.setPixel(x, y, 1, g);
+                        result.setPixel(x, y, 2, b);
+                    }
+                }
+            }
+            
+            // Paste image
+            int ox = outer + gap + inner;
+            int oy = outer + gap + inner;
+            for (int y = 0; y < currentImage.height; ++y) {
+                for (int x = 0; x < currentImage.width; ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x + ox, y + oy, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            currentImage = result;
+        } else if (frameType == "Shadow Frame") {
+            // Shadow frame with custom color
+            int pad = frameWidth;
+            int shadow = frameWidth * 2;
+            int newW = currentImage.width + pad + shadow;
+            int newH = currentImage.height + pad + shadow;
+            Image result(newW, newH);
+            
+            // Base dark
+            int bgR = r / 8, bgG = g / 8, bgB = b / 8;
+            for (int y = 0; y < newH; ++y) {
+                for (int x = 0; x < newW; ++x) {
+                    result.setPixel(x, y, 0, bgR);
+                    result.setPixel(x, y, 1, bgG);
+                    result.setPixel(x, y, 2, bgB);
+                }
+            }
+            
+            // Soft shadow gradient
+            for (int y = 0; y < newH; ++y) {
+                for (int x = 0; x < newW; ++x) {
+                    int dx = std::max(0, x - (pad + currentImage.width));
+                    int dy = std::max(0, y - (pad + currentImage.height));
+                    int dist = std::max(dx, dy);
+                    int shade = std::min(100, dist * 4);
+                    int shadeR = bgR + (r * shade / 100);
+                    int shadeG = bgG + (g * shade / 100);
+                    int shadeB = bgB + (b * shade / 100);
+                    result.setPixel(x, y, 0, std::min(255, shadeR));
+                    result.setPixel(x, y, 1, std::min(255, shadeG));
+                    result.setPixel(x, y, 2, std::min(255, shadeB));
+                }
+            }
+            
+            // Paste image
+            for (int y = 0; y < currentImage.height; ++y) {
+                for (int x = 0; x < currentImage.width; ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x + pad, y + pad, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            currentImage = result;
+        } else if (frameType == "Gold Decorated Frame") {
+            // Gold style frame with custom color
+            int fw = frameWidth * 2;
+            int outer[3] = {static_cast<int>(r * 0.7), static_cast<int>(g * 0.55), static_cast<int>(b * 0.16)};
+            int inner[3] = {static_cast<int>(r * 0.94), static_cast<int>(g * 0.82), static_cast<int>(b * 0.47)};
+            int accent[3] = {static_cast<int>(r * 0.78), static_cast<int>(g * 0.63), static_cast<int>(b * 0.24)};
+            int newW = currentImage.width + 2 * fw;
+            int newH = currentImage.height + 2 * fw;
+            Image result(newW, newH);
+            
+            // Fill outer
+            for (int y = 0; y < newH; ++y) {
+                for (int x = 0; x < newW; ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x, y, c, outer[c]);
+                    }
+                }
+            }
+            
+            // Accent stripes
+            for (int y = 3; y < newH - 3; ++y) {
+                for (int x = 3; x < newW - 3; ++x) {
+                    bool stripe = ((x + y) % 11 == 0) || ((x - y + 1000) % 13 == 0);
+                    if (stripe) {
+                        for (int c = 0; c < 3; ++c) {
+                            result.setPixel(x, y, c, accent[c]);
+                        }
+                    }
+                }
+            }
+            
+            // Inner plate
+            for (int y = fw - 6; y < newH - (fw - 6); ++y) {
+                for (int x = fw - 6; x < newW - (fw - 6); ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x, y, c, inner[c]);
+                    }
+                }
+            }
+            
+            // Paste image
+            for (int y = 0; y < currentImage.height; ++y) {
+                for (int x = 0; x < currentImage.width; ++x) {
+                    for (int c = 0; c < 3; ++c) {
+                        result.setPixel(x + fw, y + fw, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            currentImage = result;
+        } else {
+            // Decorated Frame (default decorative style with custom colors)
+            int fw = std::max(1, frameWidth);
+            int outerColor[3] = {static_cast<int>(r * 0.39), static_cast<int>(g * 0.27), static_cast<int>(b * 0.20)};
+            int innerColor[3] = {static_cast<int>(r * 0.92), static_cast<int>(g * 0.88), static_cast<int>(b * 0.82)};
+            int accentColor[3] = {static_cast<int>(r * 0.71), static_cast<int>(g * 0.55), static_cast<int>(b * 0.31)};
+            
+            int originalWidth = currentImage.width;
+            int originalHeight = currentImage.height;
+            int newWidth = originalWidth + 2 * fw;
+            int newHeight = originalHeight + 2 * fw;
+            
+            Image result(newWidth, newHeight);
+            
+            // Copy original image
+            for (int y = 0; y < originalHeight; y++) {
+                for (int x = 0; x < originalWidth; x++) {
+                    for (int c = 0; c < 3; c++) {
+                        result.setPixel(x + fw, y + fw, c, currentImage(x, y, c));
+                    }
+                }
+            }
+            
+            // Create decorated frame
+            for (int y = 0; y < newHeight; y++) {
+                for (int x = 0; x < newWidth; x++) {
+                    if (x < fw || x >= newWidth - fw ||
+                        y < fw || y >= newHeight - fw) {
+                        
+                        int distFromEdge = std::min({x, y, newWidth - 1 - x, newHeight - 1 - y});
+                        
+                        if (distFromEdge < 3) {
+                            for (int c = 0; c < 3; c++) {
+                                result.setPixel(x, y, c, outerColor[c]);
+                            }
+                        } else if (distFromEdge == 12 || distFromEdge == 15 || distFromEdge == 9) {
+                            for (int c = 0; c < 3; c++) {
+                                result.setPixel(x, y, c, accentColor[c]);
+                            }
+                        } else if (distFromEdge < fw - 4) {
+                            for (int c = 0; c < 3; c++) {
+                                result.setPixel(x, y, c, innerColor[c]);
+                            }
+                            
+                            int cornerDist = std::min(std::min(x, newWidth - 1 - x),
+                                                     std::min(y, newHeight - 1 - y));
+                            
+                            if (cornerDist < fw) {
+                                if ((x + y) % 12 == 0) {
+                                    for (int c = 0; c < 3; c++) {
+                                        result.setPixel(x, y, c, accentColor[c]);
+                                    }
+                                }
+                            }
+                        } else if (distFromEdge >= fw - 4 && distFromEdge < fw - 1) {
+                            for (int c = 0; c < 3; c++) {
+                                result.setPixel(x, y, c, accentColor[c]);
+                            }
+                        } else {
+                            for (int c = 0; c < 3; c++) {
+                                result.setPixel(x, y, c, outerColor[c]);
+                            }
+                        }
+                    }
+                }
+            }
+            currentImage = result;
+        }
+        
+        if (statusBar) {
+            statusBar->showMessage(QString("Custom Colored Frame applied (%1, RGB: %2, %3, %4)").arg(frameType).arg(r).arg(g).arg(b));
         }
     } catch (const std::exception& e) {
         if (statusBar) {
@@ -1559,6 +1906,68 @@ void ImageFilters::applyPurpleFilter(Image& currentImage, Image& preFilterImage,
         
         if (statusBar) {
             statusBar->showMessage("Purple filter applied");
+        }
+    } catch (const std::exception& e) {
+        if (statusBar) {
+            statusBar->showMessage(QString("Filter failed: %1").arg(e.what()));
+        }
+    }
+    
+    if (progressBar) {
+        progressBar->setVisible(false);
+    }
+}
+
+void ImageFilters::applyColorTint(Image& currentImage, Image& preFilterImage, std::atomic<bool>& cancelRequested, 
+                                 int r, int g, int b, double intensity)
+{
+    if (progressBar) {
+        progressBar->setVisible(true);
+        progressBar->setRange(0, currentImage.height);
+        progressBar->setValue(0);
+    }
+    
+    if (statusBar) {
+        statusBar->showMessage("Applying Color Tint filter... (Click Cancel to stop)");
+    }
+    QApplication::processEvents();
+    
+    // Clamp intensity to [0.0, 1.0]
+    intensity = std::max(0.0, std::min(1.0, intensity));
+    
+    try {
+        for (int y = 0; y < currentImage.height; y++) {
+            // Check for cancellation
+            if (cancelRequested) {
+                checkCancellation(cancelRequested, currentImage, preFilterImage, "Color Tint");
+                return;
+            }
+            
+            for (int x = 0; x < currentImage.width; x++) {
+                int origR = currentImage(x, y, 0);
+                int origG = currentImage(x, y, 1);
+                int origB = currentImage(x, y, 2);
+                
+                // Blend the tint color with the original pixel
+                int newR = static_cast<int>(origR * (1.0 - intensity) + r * intensity);
+                int newG = static_cast<int>(origG * (1.0 - intensity) + g * intensity);
+                int newB = static_cast<int>(origB * (1.0 - intensity) + b * intensity);
+                
+                newR = std::max(0, std::min(255, newR));
+                newG = std::max(0, std::min(255, newG));
+                newB = std::max(0, std::min(255, newB));
+                
+                currentImage.setPixel(x, y, 0, newR);
+                currentImage.setPixel(x, y, 1, newG);
+                currentImage.setPixel(x, y, 2, newB);
+            }
+            
+            // Update progress
+            updateProgress(y + 1, currentImage.height);
+        }
+        
+        if (statusBar) {
+            statusBar->showMessage(QString("Color Tint filter applied (RGB: %1, %2, %3)").arg(r).arg(g).arg(b));
         }
     } catch (const std::exception& e) {
         if (statusBar) {

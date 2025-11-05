@@ -229,6 +229,33 @@ public:
     void applyFrame(Image& currentImage, const QString& frameType);
     
     /**
+     * @brief Adds a custom colored frame around the image.
+     * 
+     * @param currentImage Reference to the image to frame (modified in-place)
+     * @param frameWidth Width of the frame in pixels
+     * @param r Red component of the frame color (0-255)
+     * @param g Green component of the frame color (0-255)
+     * @param b Blue component of the frame color (0-255)
+     * 
+     * @note This is an immediate operation without progress tracking.
+     */
+    void applyFrame(Image& currentImage, int frameWidth, int r, int g, int b);
+    
+    /**
+     * @brief Applies a frame with custom type and color.
+     * 
+     * @param currentImage Reference to the image to frame (modified in-place)
+     * @param frameType Frame style type (Solid Frame, Simple Frame, Double Border, Shadow Frame, Gold Decorated Frame, Decorated Frame)
+     * @param frameWidth Width of the frame in pixels
+     * @param r Red component of the frame color (0-255)
+     * @param g Green component of the frame color (0-255)
+     * @param b Blue component of the frame color (0-255)
+     * 
+     * @note This is an immediate operation without progress tracking.
+     */
+    void applyFrame(Image& currentImage, const QString& frameType, int frameWidth, int r, int g, int b);
+    
+    /**
      * @brief Detects and highlights edges in the image.
      * 
      * Applies Sobel edge detection algorithm with Gaussian blur preprocessing.
@@ -345,6 +372,27 @@ public:
      * @note This is a long-running operation that can be cancelled.
      */
     void applyPurpleFilter(Image& currentImage, Image& preFilterImage, std::atomic<bool>& cancelRequested);
+    
+    /**
+     * @brief Applies a custom color tint to the image.
+     * 
+     * Applies a color tint by blending the selected color with the image.
+     * This operation supports progress tracking and cancellation.
+     * 
+     * @param currentImage Reference to the image to process (modified in-place)
+     * @param preFilterImage Reference to store the original image state for cancellation
+     * @param cancelRequested Atomic flag to check for cancellation requests
+     * @param r Red component of the tint color (0-255)
+     * @param g Green component of the tint color (0-255)
+     * @param b Blue component of the tint color (0-255)
+     * @param intensity Tint intensity (0.0-1.0, where 0.0 = no effect, 1.0 = full tint)
+     * 
+     * @details The effect blends the tint color with the image based on intensity.
+     * 
+     * @note This is a long-running operation that can be cancelled.
+     */
+    void applyColorTint(Image& currentImage, Image& preFilterImage, std::atomic<bool>& cancelRequested, 
+                       int r, int g, int b, double intensity = 0.5);
 
     // New filters with progress and cancellation
     void applyEmboss(Image& currentImage, Image& preFilterImage, std::atomic<bool>& cancelRequested);

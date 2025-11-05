@@ -40,6 +40,7 @@ include_directories(third_party/stb)
 # Source files
 set(SOURCES
     src/gui/photo_smith.cpp
+    src/gui/ColorWheelDialog.cpp
     src/core/filters/ImageFilters.cpp
     src/core/image/Image_Class.cpp
 )
@@ -50,6 +51,7 @@ set(HEADERS
     src/core/filters/ImageFilters.h
     src/core/history/HistoryManager.h
     src/core/io/ImageIO.h
+    src/gui/ColorWheelDialog.h
 )
 
 # UI files
